@@ -1,4 +1,5 @@
 // source: https://github.com/framp/paillier-in-set-zkp/blob/master/index.js
+// based on https://paillier.daylightingsociety.org/Paillier_Zero_Knowledge_Proof.pdf
 
 const paillier = require('paillier-js')
 const bigInt = require('big-integer')
@@ -15,10 +16,21 @@ const rEncrypt = function ({ n, g }, message) {
   return [r, g.modPow(bigInt(message), _n2).multiply(r.modPow(n, _n2)).mod(_n2)]
 }
 
+const getBase2Logarithm = (number, maxBits) => {
+  // the same as Math.floor(Math.log2(number))
+  let bits = bigInt(maxBits)
+  while (true) {
+    if(bigInt(2).pow(bits).leq(number)) {
+      return bits
+    }
+    bits = bits.subtract(1)
+  }
+}
+
 // getCoprime :: Bits -> Number -> Number
 // Generate a coprime number of target (their GCD should be 1)
-const getCoprime = (target) => {
-  const bits = Math.floor(Math.log2(target))
+const getCoprime = (target, maxBits) => {
+  const bits = getBase2Logarithm(target, maxBits)
   while (true) {
     const lowerBound = bigInt(2).pow(bits-1).plus(1)
     const size = bigInt(2).pow(bits).subtract(lowerBound)
@@ -42,7 +54,7 @@ const encryptWithProof = (publicKey, message, validMessages, bits=512) => {
 
   const [random, cipher] = rEncrypt(publicKey, message)
 
-  const om = getCoprime(publicKey.n)
+  const om = getCoprime(publicKey.n, bits)
   const ap = om.modPow(publicKey.n, publicKey._n2)
 
   let mi = null
@@ -55,7 +67,7 @@ const encryptWithProof = (publicKey, message, validMessages, bits=512) => {
       es.push(null)
       mi = i
     } else {
-      const zk = getCoprime(publicKey.n)
+      const zk = getCoprime(publicKey.n, bits)
       zs.push(zk)
       const ek = bigInt.randBetween(2, bigInt(2).pow(bits).subtract(1));
       es.push(ek)
